@@ -324,7 +324,11 @@ fun LoginWebView(
         onDismissRequest = onDismiss,
         title = { Text("Pixiv 登录") },
         text = {
-            AndroidView(
+            Column {
+                Text("请在下方点击右上角「登录」按钮，完成登录后自动关闭", 
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 8.dp))
+                AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
                         settings.javaScriptEnabled = true
@@ -336,13 +340,14 @@ fun LoginWebView(
                                 // 获取 Cookie
                                 val cookieManager = CookieManager.getInstance()
                                 val cookies = cookieManager.getCookie("pixiv.net")
-                                if (cookies != null && cookies.contains("PHPSESSID")) {
+                                // 检查是否包含登录凭证（PHPSESSID 或 user_id）
+                                if (cookies != null && (cookies.contains("PHPSESSID") || cookies.contains("user_id"))) {
                                     onCookiesReceived(cookies)
                                 }
                             }
                         }
                         
-                        loadUrl("https://www.pixiv.net/login")
+                        loadUrl("https://www.pixiv.net/")
                     }
                 },
                 modifier = Modifier

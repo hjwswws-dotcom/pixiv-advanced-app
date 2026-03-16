@@ -329,8 +329,8 @@ fun LoginWebView(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(bottom = 8.dp))
                 AndroidView(
-                factory = { ctx ->
-                    WebView(ctx).apply {
+                    factory = {
+                        WebView(it).apply {
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         

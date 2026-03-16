@@ -217,6 +217,9 @@ jobs:
       
       - name: Check workflow YAML syntax
         run: |
+          # 先安装 pyyaml
+          pip install pyyaml -q
+          
           python3 -c "
           import yaml
           from pathlib import Path

@@ -193,33 +193,35 @@ class PixivApiService {
             val illustManga = bodyObj?.optJSONObject("illustManga")
             Log.d(TAG, "【第2级】body.illustManga存在: ${illustManga != null}")
             
-            // 检查data数组
-            val dataArray = illustManga?.optJSONArray("data")
+            // 检查data数组 - 优先illustManga.data
+            var dataArray = illustManga?.optJSONArray("data")
             Log.d(TAG, "【第2级】body.illustManga.data存在: ${dataArray != null}")
             Log.d(TAG, "【第2级】body.illustManga.data.length: ${dataArray?.length() ?: 0}")
             
+            // 备选：body.data
+            var altDataArray: JSONArray? = null
+            if (dataArray == null || dataArray.length() == 0) {
+                altDataArray = bodyObj?.optJSONArray("data")
+                Log.d(TAG, "【第2级】备选body.data长度: ${altDataArray?.length() ?: 0}")
+            }
+            
             // 打印data[0]的key和id/title
-            if (dataArray != null && dataArray.length() > 0) {
-                val firstItem = dataArray.getJSONObject(0)
+            val firstArray = dataArray ?: altDataArray
+            if (firstArray != null && firstArray.length() > 0) {
+                val firstItem = firstArray.getJSONObject(0)
                 val firstItemKeys = firstItem.keys().asSequence().toList()
                 Log.d(TAG, "【第2级】data[0]的key: $firstItemKeys")
                 Log.d(TAG, "【第2级】data[0].id: ${firstItem.optLong("id", -1)}")
                 Log.d(TAG, "【第2级】data[0].title: ${firstItem.optString("title", "N/A")}")
                 Log.d(TAG, "【第2级】data[0].userName: ${firstItem.optString("userName", "N/A")}")
-            } else {
-                // 尝试备选路径 body.data
-                val altDataArray = bodyObj?.optJSONArray("data")
-                Log.d(TAG, "【第2级】备选body.data长度: ${altDataArray?.length() ?: 0}")
-                if (altDataArray != null && altDataArray.length() > 0) {
-                    val firstItem = altDataArray.getJSONObject(0)
-                    Log.d(TAG, "【第2级】body.data[0].id: ${firstItem.optLong("id", -1)}")
-                    Log.d(TAG, "【第2级】body.data[0].title: ${firstItem.optString("title", "N/A")}")
-                }
             }
             
             // 统计总数
             val total = illustManga?.optInt("total") ?: bodyObj?.optInt("total") ?: 0
             Log.d(TAG, "【第2级】total总数: $total")
+            
+            // 保存数组长度用于调试
+            val arrayLen = dataArray?.length() ?: altDataArray?.length() ?: 0
             
             // ===== 第3级：模型映射级 =====
             Log.d(TAG, "===== 进入模型解析 =====")
@@ -235,11 +237,12 @@ class PixivApiService {
                 appendLine("【审计结果】")
                 appendLine("raw长度: ${raw.length}")
                 appendLine("包含illustManga: ${raw.contains("illustManga")}")
-                appendLine("data数组长度: ${dataArray?.length() ?: altDataArray?.length() ?: 0}")
+                appendLine("data数组长度: $arrayLen")
                 appendLine("model解析数: ${items.size}")
-                if (dataArray != null && dataArray.length() > 0) {
-                    appendLine("data[0].id: ${dataArray.getJSONObject(0).optLong("id", -1)}")
-                    appendLine("data[0].title: ${dataArray.getJSONObject(0).optString("title", "N/A")}")
+                if (firstArray != null && firstArray.length() > 0) {
+                    val first = firstArray.getJSONObject(0)
+                    appendLine("data[0].id: ${first.optLong("id", -1)}")
+                    appendLine("data[0].title: ${first.optString("title", "N/A")}")
                 }
             }
             

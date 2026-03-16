@@ -149,7 +149,8 @@ class CollectorEngine(
                 it.copy(
                     candidateCount = it.candidateCount + candidates.size,
                     matchedCount = it.matchedCount + candidates.size,
-                    results = it.results + candidates
+                    results = it.results + candidates,
+                    debugInfo = result.debugInfo
                 )
             }
             
@@ -176,7 +177,8 @@ data class CollectorState(
     val results: List<Artwork> = emptyList(),
     val state: TaskState = TaskState.IDLE,
     val lastError: String? = null,
-    val consecutiveErrors: Int = 0
+    val consecutiveErrors: Int = 0,
+    val debugInfo: String = ""
 ) {
     // 计算属性：实际运行中
     val isActivelyRunning: Boolean get() = isRunning && !isPaused

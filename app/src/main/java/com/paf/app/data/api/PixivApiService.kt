@@ -106,11 +106,17 @@ class PixivApiService {
     }
     
     /**
-     * 搜索作品
+     * 搜索作品 - 带审计日志
      */
     suspend fun search(keyword: String, page: Int): SearchResult = withContext(Dispatchers.IO) {
         try {
             val url = buildSearchUrl(keyword, page)
+            
+            // 审计日志
+            Log.d(TAG, "===== 搜索审计开始 =====")
+            Log.d(TAG, "URL: $url")
+            Log.d(TAG, "Cookie: ${if (cookies.isNotEmpty()) "yes" else "no"}")
+            
             val request = Request.Builder()
                 .url(url)
                 .header("Accept", "application/json")
@@ -124,6 +130,8 @@ class PixivApiService {
                 .build()
             
             val response = client.newCall(request).execute()
+            
+            Log.d(TAG, "HTTP状态: ${response.code}")
             
             if (!response.isSuccessful) {
                 return@withContext SearchResult(
@@ -139,23 +147,66 @@ class PixivApiService {
                 items = emptyList()
             )
             
+            // 检查响应类型
+            val isHtml = body.trim().startsWith("<") || body.trim().startsWith("<!DOCTYPE")
+            if (isHtml) {
+                Log.w(TAG, "警告: 响应是HTML!")
+                Log.d(TAG, "HTML内容: ${body.take(200)}")
+            } else {
+                // 打印JSON结构
+                try {
+                    val json = JSONObject(body)
+                    val topKeys = json.keys().asSequence().toList()
+                    Log.d(TAG, "顶层key: $topKeys")
+                    val bodyObj = json.optJSONObject("body")
+                    val bodyKeys = bodyObj?.keys()?.asSequence()?.toList() ?: emptyList()
+                    Log.d(TAG, "body.key: $bodyKeys")
+                    
+                    // 检查解析路径
+                    val hasIllust = bodyObj?.optJSONObject("illust") != null
+                    val hasData = bodyObj?.optJSONArray("data") != null
+                    Log.d(TAG, "body.illust存在: $hasIllust, body.data存在: $hasData")
+                } catch (e: Exception) {
+                    Log.e(TAG, "JSON解析错误: ${e.message}")
+                }
+            }
+            
             val json = JSONObject(body)
             
             if (json.optBoolean("error", true)) {
+                val errMsg = json.optString("message", "Unknown error")
+                Log.e(TAG, "API错误: $errMsg")
                 return@withContext SearchResult(
                     success = false,
-                    error = json.optString("message", "Unknown error"),
+                    error = errMsg,
                     items = emptyList()
                 )
             }
             
-            // 解析作品列表 - 在 body.illust.data 中
+            // 解析作品列表
             val items = parseSearchResults(json)
+            
+            Log.d(TAG, "解析结果数量: ${items.size}")
+            Log.d(TAG, "===== 搜索审计结束 =====")
+            
+            // 构建调试信息字符串
+            val debugInfo = buildString {
+                appendLine("【证据1】URL: $url")
+                appendLine("【证据1】HTTP: ${response.code} | Cookie: ${if (cookies.isNotEmpty()) "有" else "无"}")
+                if (isHtml) {
+                    appendLine("【证据2】⚠️ 返回HTML不是JSON")
+                    appendLine("【证据2】HTML: ${body.take(150)}")
+                } else {
+                    appendLine("【证据2】JSON响应正常")
+                }
+                appendLine("【证据3】候选数: ${items.size}")
+            }
             
             SearchResult(
                 success = true,
                 items = items,
-                hasNext = items.isNotEmpty()
+                hasNext = items.isNotEmpty(),
+                debugInfo = debugInfo
             )
             
         } catch (e: Exception) {
@@ -335,7 +386,9 @@ data class SearchResult(
     val success: Boolean,
     val error: String? = null,
     val items: List<Artwork> = emptyList(),
-    val hasNext: Boolean = false
+    val hasNext: Boolean = false,
+    // 调试信息（简单字符串形式）
+    val debugInfo: String = ""
 )
 
 /**

@@ -319,28 +319,28 @@ fun LoginWebView(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Pixiv 登录") },
         text = {
             Column {
-                Text("请在下方点击右上角「登录」按钮，完成登录后自动关闭", 
+                Text(
+                    "请在下方点击右上角「登录」按钮，完成登录后自动关闭",
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(bottom = 8.dp))
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
                 AndroidView(
-                    factory = {
-                        WebView(it).apply {
+                    factory = { ctx ->
+                        WebView(ctx).apply {
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = true
 
                             webViewClient = object : WebViewClient() {
                                 override fun onPageFinished(view: WebView?, url: String?) {
                                     super.onPageFinished(view, url)
-                                    // 获取 Cookie
                                     val cookieManager = CookieManager.getInstance()
                                     val cookies = cookieManager.getCookie("pixiv.net")
-                                    // 检查是否包含登录凭证（PHPSESSID 或 user_id）
                                     if (cookies != null && (cookies.contains("PHPSESSID") || cookies.contains("user_id"))) {
                                         onCookiesReceived(cookies)
                                     }
@@ -350,10 +350,11 @@ fun LoginWebView(
                             loadUrl("https://www.pixiv.net/")
                         }
                     },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(400.dp)
-            )
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(400.dp)
+                )
+            }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {

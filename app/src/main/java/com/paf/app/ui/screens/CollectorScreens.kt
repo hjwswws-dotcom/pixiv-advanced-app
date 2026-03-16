@@ -3,10 +3,6 @@ package com.paf.app.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -61,7 +57,7 @@ fun CollectingScreen(
                     )
                     when (state.state) {
                         TaskState.RUNNING -> CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                        TaskState.PAUSED -> Text("⏸️")
+                        TaskState.PAUSED -> Text("⏸")
                         TaskState.COMPLETED -> Text("✅")
                         TaskState.ERROR -> Text("❌")
                         else -> {}
@@ -83,7 +79,7 @@ fun CollectingScreen(
                     state.matchedCount.toFloat() / config.targetCount
                 }
                 LinearProgressIndicator(
-                    progress = progress.coerceIn(0f, 1f),
+                    progress = { progress.coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 
@@ -136,36 +132,28 @@ fun CollectingScreen(
                     onClick = { collectorEngine.start(config) },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text("开始")
+                    Text("▶ 开始")
                 }
             } else if (state.isActivelyRunning) {
                 Button(
                     onClick = { collectorEngine.pause() },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Filled.Pause, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text("暂停")
+                    Text("⏸ 暂停")
                 }
             } else if (state.isPaused) {
                 Button(
                     onClick = { collectorEngine.resume() },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text("继续")
+                    Text("▶ 继续")
                 }
                 Button(
                     onClick = { collectorEngine.stop() },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Icon(Icons.Filled.Stop, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text("停止")
+                    Text("⏹ 停止")
                 }
             }
         }
@@ -250,7 +238,7 @@ fun HistoryScreen(modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("📁 历史任务", style = MaterialTheme.typography.headlineMedium)
+        Text("历史任务", style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(16.dp))
         Text("暂无历史记录", style = MaterialTheme.typography.bodyMedium)
     }
@@ -268,13 +256,13 @@ fun SettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("⚙️ 设置", style = MaterialTheme.typography.headlineMedium)
+        Text("设置", style = MaterialTheme.typography.headlineMedium)
         
         Card {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Pixiv 登录状态", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(if (isLoggedIn) "✅ 已登录" else "❌ 未登录")
+                Text(if (isLoggedIn) "已登录" else "未登录")
                 
                 if (isLoggedIn) {
                     Spacer(modifier = Modifier.height(8.dp))

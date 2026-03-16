@@ -1,5 +1,6 @@
 package com.paf.app.data.api
 
+import android.util.Log
 import com.paf.app.data.model.Artwork
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,11 +22,16 @@ class PixivApiService {
         .build()
     
     companion object {
+        private const val TAG = "PixivAPI"
         private const val BASE_URL = "https://www.pixiv.net"
         private const val API_BASE = "$BASE_URL/ajax"
         
         // 存储 Cookie
         var cookies: String = ""
+            set(value) {
+                Log.d(TAG, "Setting cookies: ${value.length} chars")
+                field = value
+            }
         
         // 搜索接口 - 优先使用 artworks 端点
         fun buildSearchUrl(keyword: String, page: Int): String {
@@ -39,6 +45,63 @@ class PixivApiService {
         
         private fun encodeKeyword(keyword: String): String {
             return java.net.URLEncoder.encode(keyword, "UTF-8")
+        }
+    }
+    
+    /**
+     * 验证登录状态 - 通过获取用户信息 API
+     */
+    suspend fun verifyLogin(): LoginVerifyResult = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Verifying login, cookie length: ${cookies.length}")
+            
+            // 调用用户信息 API
+            val url = "$API_BASE/user/me?lang=zh"
+            val request = Request.Builder()
+                .url(url)
+                .header("Accept", "application/json")
+                .header("x-requested-with", "XMLHttpRequest")
+                .header("Referer", BASE_URL)
+                .apply {
+                    if (cookies.isNotEmpty()) {
+                        addHeader("Cookie", cookies)
+                        Log.d(TAG, "Added cookie to request: ${cookies.substring(0, minOf(100, cookies.length))}...")
+                    }
+                }
+                .build()
+            
+            val response = client.newCall(request).execute()
+            val body = response.body?.string() ?: ""
+            
+            Log.d(TAG, "Verify response code: ${response.code}, body length: ${body.length}")
+            
+            if (response.code == 200 && body.isNotEmpty()) {
+                try {
+                    val json = JSONObject(body)
+                    if (!json.optBoolean("error", true)) {
+                        val userId = json.optJSONObject("body")?.optString("userId", "")
+                        val userName = json.optJSONObject("body")?.optString("name", "")
+                        Log.d(TAG, "Login verified! User: $userName (ID: $userId)")
+                        return@withContext LoginVerifyResult(
+                            success = true,
+                            userId = userId,
+                            userName = userName
+                        )
+                    } else {
+                        val errorMsg = json.optString("message", "Unknown error")
+                        Log.w(TAG, "Login verify failed: $errorMsg")
+                        return@withContext LoginVerifyResult(success = false, error = errorMsg)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Parse error: ${e.message}")
+                    return@withContext LoginVerifyResult(success = false, error = e.message)
+                }
+            }
+            
+            return@withContext LoginVerifyResult(success = false, error = "HTTP ${response.code}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Verify error: ${e.message}")
+            return@withContext LoginVerifyResult(success = false, error = e.message)
         }
     }
     
@@ -273,4 +336,14 @@ data class SearchResult(
     val error: String? = null,
     val items: List<Artwork> = emptyList(),
     val hasNext: Boolean = false
+)
+
+/**
+ * 登录验证结果
+ */
+data class LoginVerifyResult(
+    val success: Boolean,
+    val userId: String? = null,
+    val userName: String? = null,
+    val error: String? = null
 )

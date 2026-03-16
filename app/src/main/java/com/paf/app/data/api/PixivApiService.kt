@@ -34,9 +34,11 @@ class PixivApiService {
                 field = value
             }
         
-        // 搜索接口 - 优先使用 artworks 端点
+        // 搜索接口 - 路径空格用%20，参数空格用+
         fun buildSearchUrl(keyword: String, page: Int): String {
-            return "$API_BASE/search/artworks/${encodeKeyword(keyword)}?word=${encodeKeyword(keyword)}&p=$page&lang=zh"
+            val encodedPath = encodeKeyword(keyword).replace("+", "%20")
+            val encodedWord = encodeKeyword(keyword)
+            return "$API_BASE/search/artworks/$encodedPath?word=$encodedWord&p=$page&lang=zh"
         }
         
         // 作品详情接口（用于获取 AI/R18 标签）

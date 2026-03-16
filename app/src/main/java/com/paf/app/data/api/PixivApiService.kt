@@ -106,14 +106,14 @@ class PixivApiService {
     }
     
     /**
-     * 搜索作品 - 带审计日志
+     * 搜索作品 - 三级解析审计
      */
     suspend fun search(keyword: String, page: Int): SearchResult = withContext(Dispatchers.IO) {
         try {
             val url = buildSearchUrl(keyword, page)
             
-            // 审计日志
-            Log.d(TAG, "===== 搜索审计开始 =====")
+            // ===== 第1级：原始字符串级 =====
+            Log.d(TAG, "===== 三级解析审计开始 =====")
             Log.d(TAG, "URL: $url")
             Log.d(TAG, "Cookie: ${if (cookies.isNotEmpty()) "yes" else "no"}")
             
@@ -141,65 +141,106 @@ class PixivApiService {
                 )
             }
             
-            val body = response.body?.string() ?: return@withContext SearchResult(
+            // 【关键】只读取一次response.body，保存为raw
+            val raw = response.body?.string() ?: return@withContext SearchResult(
                 success = false,
                 error = "Empty response",
                 items = emptyList()
             )
             
-            // 检查响应类型
-            val isHtml = body.trim().startsWith("<") || body.trim().startsWith("<!DOCTYPE")
+            // ===== 第1级审计：raw字符串分析 =====
+            Log.d(TAG, "【第1级】raw长度: ${raw.length}")
+            Log.d(TAG, "【第1级】raw前500字符: ${raw.take(500)}")
+            Log.d(TAG, "【第1级】raw是否包含'illustManga': ${raw.contains("illustManga")}")
+            Log.d(TAG, "【第1级】raw是否包含'data': ${raw.contains("\"data\"")}")
+            Log.d(TAG, "【第1级】是否存在response body二次读取: 否 (只读一次)")
+            
+            // 检查是否是HTML
+            val isHtml = raw.trim().startsWith("<") || raw.trim().startsWith("<!DOCTYPE")
             if (isHtml) {
-                Log.w(TAG, "警告: 响应是HTML!")
-                Log.d(TAG, "HTML内容: ${body.take(200)}")
-            } else {
-                // 打印JSON结构
-                try {
-                    val json = JSONObject(body)
-                    val topKeys = json.keys().asSequence().toList()
-                    Log.d(TAG, "顶层key: $topKeys")
-                    val bodyObj = json.optJSONObject("body")
-                    val bodyKeys = bodyObj?.keys()?.asSequence()?.toList() ?: emptyList()
-                    Log.d(TAG, "body.key: $bodyKeys")
-                    
-                    // 检查解析路径
-                    val hasIllust = bodyObj?.optJSONObject("illust") != null
-                    val hasData = bodyObj?.optJSONArray("data") != null
-                    Log.d(TAG, "body.illust存在: $hasIllust, body.data存在: $hasData")
-                } catch (e: Exception) {
-                    Log.e(TAG, "JSON解析错误: ${e.message}")
-                }
+                Log.w(TAG, "【警告】响应是HTML不是JSON!")
+                return@withContext SearchResult(
+                    success = false,
+                    error = "返回HTML而非JSON",
+                    items = emptyList(),
+                    debugInfo = "【第1级】响应是HTML: ${raw.take(200)}"
+                )
             }
             
-            val json = JSONObject(body)
+            // ===== 第2级：手工JSON结构级 =====
+            val json = JSONObject(raw)
             
-            if (json.optBoolean("error", true)) {
-                val errMsg = json.optString("message", "Unknown error")
-                Log.e(TAG, "API错误: $errMsg")
+            // 检查error
+            val hasError = json.optBoolean("error", true)
+            Log.d(TAG, "【第2级】error字段: $hasError")
+            
+            if (hasError) {
+                val errMsg = json.optString("message", "Unknown")
+                Log.e(TAG, "【第2级】API错误: $errMsg")
                 return@withContext SearchResult(
                     success = false,
                     error = errMsg,
-                    items = emptyList()
+                    items = emptyList(),
+                    debugInfo = "【第2级】API返回error: $errMsg"
                 )
             }
+            
+            // 检查body
+            val bodyObj = json.optJSONObject("body")
+            Log.d(TAG, "【第2级】body存在: ${bodyObj != null}")
+            
+            // 检查illustManga路径
+            val illustManga = bodyObj?.optJSONObject("illustManga")
+            Log.d(TAG, "【第2级】body.illustManga存在: ${illustManga != null}")
+            
+            // 检查data数组
+            val dataArray = illustManga?.optJSONArray("data")
+            Log.d(TAG, "【第2级】body.illustManga.data存在: ${dataArray != null}")
+            Log.d(TAG, "【第2级】body.illustManga.data.length: ${dataArray?.length() ?: 0}")
+            
+            // 打印data[0]的key和id/title
+            if (dataArray != null && dataArray.length() > 0) {
+                val firstItem = dataArray.getJSONObject(0)
+                val firstItemKeys = firstItem.keys().asSequence().toList()
+                Log.d(TAG, "【第2级】data[0]的key: $firstItemKeys")
+                Log.d(TAG, "【第2级】data[0].id: ${firstItem.optLong("id", -1)}")
+                Log.d(TAG, "【第2级】data[0].title: ${firstItem.optString("title", "N/A")}")
+                Log.d(TAG, "【第2级】data[0].userName: ${firstItem.optString("userName", "N/A")}")
+            } else {
+                // 尝试备选路径 body.data
+                val altDataArray = bodyObj?.optJSONArray("data")
+                Log.d(TAG, "【第2级】备选body.data长度: ${altDataArray?.length() ?: 0}")
+                if (altDataArray != null && altDataArray.length() > 0) {
+                    val firstItem = altDataArray.getJSONObject(0)
+                    Log.d(TAG, "【第2级】body.data[0].id: ${firstItem.optLong("id", -1)}")
+                    Log.d(TAG, "【第2级】body.data[0].title: ${firstItem.optString("title", "N/A")}")
+                }
+            }
+            
+            // 统计总数
+            val total = illustManga?.optInt("total") ?: bodyObj?.optInt("total") ?: 0
+            Log.d(TAG, "【第2级】total总数: $total")
+            
+            // ===== 第3级：模型映射级 =====
+            Log.d(TAG, "===== 进入模型解析 =====")
             
             // 解析作品列表
             val items = parseSearchResults(json)
             
-            Log.d(TAG, "解析结果数量: ${items.size}")
-            Log.d(TAG, "===== 搜索审计结束 =====")
+            Log.d(TAG, "【第3级】model解析数量: ${items.size}")
+            Log.d(TAG, "===== 三级解析审计结束 =====")
             
-            // 构建调试信息字符串
+            // 构建调试信息
             val debugInfo = buildString {
-                appendLine("【证据1】URL: $url")
-                appendLine("【证据1】HTTP: ${response.code} | Cookie: ${if (cookies.isNotEmpty()) "有" else "无"}")
-                if (isHtml) {
-                    appendLine("【证据2】⚠️ 返回HTML不是JSON")
-                    appendLine("【证据2】HTML: ${body.take(150)}")
-                } else {
-                    appendLine("【证据2】JSON响应正常")
+                appendLine("【审计结果】")
+                appendLine("raw长度: ${raw.length}")
+                appendLine("包含illustManga: ${raw.contains("illustManga")}")
+                appendLine("data数组长度: ${dataArray?.length() ?: altDataArray?.length() ?: 0}")
+                appendLine("model解析数: ${items.size}")
+                if (dataArray != null && dataArray.length() > 0) {
+                    appendLine("data[0].id: ${dataArray.getJSONObject(0).optLong("id", -1)}")
+                    appendLine("data[0].title: ${dataArray.getJSONObject(0).optString("title", "N/A")}")
                 }
-                appendLine("【证据3】候选数: ${items.size}")
             }
             
             SearchResult(
@@ -208,8 +249,8 @@ class PixivApiService {
                 hasNext = items.isNotEmpty(),
                 debugInfo = debugInfo
             )
-            
         } catch (e: Exception) {
+            Log.e(TAG, "搜索异常: ${e.message}")
             SearchResult(
                 success = false,
                 error = e.message ?: "Unknown error",
@@ -228,10 +269,10 @@ class PixivApiService {
         try {
             val body = json.getJSONObject("body")
             
-            // 尝试获取 illust.data
-            val illust = body.optJSONObject("illust")
-            if (illust != null) {
-                val data = illust.optJSONArray("data")
+            // 尝试获取 illustManga.data (新API路径)
+            val illustManga = body.optJSONObject("illustManga")
+            if (illustManga != null) {
+                val data = illustManga.optJSONArray("data")
                 if (data != null) {
                     for (i in 0 until data.length()) {
                         val item = data.getJSONObject(i)
@@ -240,7 +281,21 @@ class PixivApiService {
                 }
             }
             
-            // 如果 illust.data 为空，尝试 body.data
+            // 备选：尝试获取 illust.data (旧API路径)
+            if (items.isEmpty()) {
+                val illust = body.optJSONObject("illust")
+                if (illust != null) {
+                    val data = illust.optJSONArray("data")
+                    if (data != null) {
+                        for (i in 0 until data.length()) {
+                            val item = data.getJSONObject(i)
+                            items.add(parseArtwork(item))
+                        }
+                    }
+                }
+            }
+            
+            // 备选：尝试获取 body.data
             if (items.isEmpty()) {
                 val data = body.optJSONArray("data")
                 if (data != null) {

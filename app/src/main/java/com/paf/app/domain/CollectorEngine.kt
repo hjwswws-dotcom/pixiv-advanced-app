@@ -129,7 +129,11 @@ class CollectorEngine(
                 seenIds.add(item.id)
                 
                 // AI 过滤
-                if (config.excludeAI && item.isAI) return@filter false
+                when (config.aiMode) {
+                    "none" -> !item.isAI // 排除AI，只保留非AI
+                    "ai" -> item.isAI    // 仅AI，只保留AI作品
+                    else -> true         // allow，不过滤
+                }
                 
                 // R18 过滤
                 when (config.r18Mode) {

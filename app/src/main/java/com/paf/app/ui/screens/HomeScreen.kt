@@ -34,7 +34,7 @@ fun HomeScreen() {
     var endPage by remember { mutableStateOf("-1") }
     var targetCount by remember { mutableStateOf("20") }
     var batchSize by remember { mutableStateOf("10") }
-    var excludeAI by remember { mutableStateOf(false) }
+    var aiMode by remember { mutableStateOf("allow") }
     var r18Mode by remember { mutableStateOf("allow") }
     
     var showLoginWebView by remember { mutableStateOf(false) }
@@ -106,8 +106,8 @@ fun HomeScreen() {
                 onTargetCountChange = { targetCount = it },
                 batchSize = batchSize,
                 onBatchSizeChange = { batchSize = it },
-                excludeAI = excludeAI,
-                onExcludeAIChange = { excludeAI = it },
+                aiMode = aiMode,
+                onAIModeChange = { aiMode = it },
                 r18Mode = r18Mode,
                 onR18ModeChange = { r18Mode = it },
                 isLoggedIn = isLoggedIn,
@@ -125,7 +125,7 @@ fun HomeScreen() {
                     endPage = endPage.toIntOrNull() ?: -1,
                     targetCount = targetCount.toIntOrNull() ?: 20,
                     batchSize = batchSize.toIntOrNull() ?: 10,
-                    excludeAI = excludeAI,
+                    aiMode = aiMode,
                     r18Mode = r18Mode
                 ),
                 modifier = Modifier.padding(paddingValues)
@@ -190,8 +190,8 @@ fun SearchTab(
     onTargetCountChange: (String) -> Unit,
     batchSize: String,
     onBatchSizeChange: (String) -> Unit,
-    excludeAI: Boolean,
-    onExcludeAIChange: (Boolean) -> Unit,
+    aiMode: String,
+    onAIModeChange: (String) -> Unit,
     r18Mode: String,
     onR18ModeChange: (String) -> Unit,
     isLoggedIn: Boolean,
@@ -299,11 +299,22 @@ fun SearchTab(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Checkbox(
-                checked = excludeAI,
-                onCheckedChange = onExcludeAIChange
+            Text("AI过滤：", modifier = Modifier.width(80.dp))
+            FilterChip(
+                selected = aiMode == "allow",
+                onClick = { onAIModeChange("allow") },
+                label = { Text("不过滤") }
             )
-            Text("排除AI作品", modifier = Modifier.padding(start = 8.dp))
+            FilterChip(
+                selected = aiMode == "none",
+                onClick = { onAIModeChange("none") },
+                label = { Text("排除AI") }
+            )
+            FilterChip(
+                selected = aiMode == "ai",
+                onClick = { onAIModeChange("ai") },
+                label = { Text("仅AI") }
+            )
         }
         
         // R18 过滤

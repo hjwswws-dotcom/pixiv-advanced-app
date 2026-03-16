@@ -25,6 +25,7 @@ import com.paf.app.data.repository.SearchHistoryRepository
 import com.paf.app.domain.CollectorEngine
 import com.paf.app.domain.CollectorState
 import kotlinx.coroutines.flow.collectAsState
+import kotlinx.coroutines.flow.collectAsState
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable

@@ -429,42 +429,26 @@ fun LoginWebView(
                             webViewClient = object : WebViewClient() {
                                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                                     super.onPageStarted(view, url, favicon)
-                                    // 页面开始加载时检测
-                                    checkAndExtractCookies()?.let { 
-                                        Log.d("PAF_Login", "Cookie found on page start: ${it.length} chars")
-                                        onCookiesReceived(it)
-                                    }
+                                    // 页面开始加载时只记录日志，不再自动检测
+                                    Log.d("PAF_Login", "Page started: $url")
                                 }
                                 
                                 override fun onPageFinished(view: WebView?, url: String?) {
                                     super.onPageFinished(view, url)
                                     
-                                    // 检测当前页面 Cookie
-                                    val cookies = checkAndExtractCookies()
-                                    if (cookies != null) {
-                                        Log.d("PAF_Login", "Cookie found on page finish: ${cookies.length} chars")
-                                        onCookiesReceived(cookies)
-                                    }
+                                    // 页面加载完成时只记录日志，不再自动检测
+                                    // 只有用户点击关闭按钮时才处理 cookies
+                                    Log.d("PAF_Login", "Page finished: $url")
                                     
                                     // 记录 URL 变化
                                     if (url != null && url != lastUrl) {
                                         Log.d("PAF_Login", "URL changed to: $url")
                                         lastUrl = url
-                                        
-                                        // 关键 URL 跳转后检测
-                                        if (url.contains("pixiv.net") || url.contains("account")) {
-                                            checkAndExtractCookies()?.let {
-                                                onCookiesReceived(it)
-                                            }
-                                        }
                                     }
                                 }
                                 
                                 override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                                    // URL 跳转前检测
-                                    checkAndExtractCookies()?.let { 
-                                        onCookiesReceived(it)
-                                    }
+                                    // URL 跳转时不自动检测，等待用户确认
                                     return false
                                 }
                             }

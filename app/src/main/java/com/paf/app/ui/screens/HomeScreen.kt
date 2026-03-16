@@ -331,25 +331,25 @@ fun LoginWebView(
                 AndroidView(
                     factory = {
                         WebView(it).apply {
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = true
-                        
-                        webViewClient = object : WebViewClient() {
-                            override fun onPageFinished(view: WebView?, url: String?) {
-                                super.onPageFinished(view, url)
-                                // 获取 Cookie
-                                val cookieManager = CookieManager.getInstance()
-                                val cookies = cookieManager.getCookie("pixiv.net")
-                                // 检查是否包含登录凭证（PHPSESSID 或 user_id）
-                                if (cookies != null && (cookies.contains("PHPSESSID") || cookies.contains("user_id"))) {
-                                    onCookiesReceived(cookies)
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+
+                            webViewClient = object : WebViewClient() {
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    super.onPageFinished(view, url)
+                                    // 获取 Cookie
+                                    val cookieManager = CookieManager.getInstance()
+                                    val cookies = cookieManager.getCookie("pixiv.net")
+                                    // 检查是否包含登录凭证（PHPSESSID 或 user_id）
+                                    if (cookies != null && (cookies.contains("PHPSESSID") || cookies.contains("user_id"))) {
+                                        onCookiesReceived(cookies)
+                                    }
                                 }
                             }
+
+                            loadUrl("https://www.pixiv.net/")
                         }
-                        
-                        loadUrl("https://www.pixiv.net/")
-                    }
-                },
+                    },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(400.dp)

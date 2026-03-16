@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "PixivAdvanced"
-include ':app'
+include(":app")

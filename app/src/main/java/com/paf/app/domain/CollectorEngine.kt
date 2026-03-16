@@ -25,7 +25,7 @@ class CollectorEngine(
      * 开始收集
      */
     fun start(config: SearchConfig) {
-        if (_state.value.isRunning) return
+        if (_state.value.isActivelyRunning) return
         
         seenIds.clear()
         _state.value = CollectorState(
@@ -75,7 +75,7 @@ class CollectorEngine(
     private suspend fun collect() {
         val config = _state.value.config ?: return
         
-        while (_state.value.isRunning && !_state.value.isPaused) {
+        while (_state.value.isActivelyRunning) {
             val currentPage = _state.value.currentPage
             
             // 检查是否超过终止页
@@ -174,5 +174,6 @@ data class CollectorState(
     val lastError: String? = null,
     val consecutiveErrors: Int = 0
 ) {
-    val isRunning: Boolean get() = isRunning && !isPaused
+    // 计算属性：实际运行中
+    val isActivelyRunning: Boolean get() = isRunning && !isPaused
 }

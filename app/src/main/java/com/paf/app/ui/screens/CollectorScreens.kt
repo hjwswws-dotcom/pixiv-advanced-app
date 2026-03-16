@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -21,7 +22,6 @@ import com.paf.app.domain.CollectorEngine
 import com.paf.app.domain.CollectorState
 import kotlinx.coroutines.flow.collectLatest
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CollectingScreen(
     config: SearchConfig,
@@ -77,14 +77,13 @@ fun CollectingScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 // 进度
+                val progress = if (config.endPage > 0) {
+                    (state.currentPage - config.startPage).toFloat() / (config.endPage - config.startPage + 1)
+                } else {
+                    state.matchedCount.toFloat() / config.targetCount
+                }
                 LinearProgressIndicator(
-                    progress = {
-                        if (config.endPage > 0) {
-                            (state.currentPage - config.startPage).toFloat() / (config.endPage - config.startPage + 1)
-                        } else {
-                            state.matchedCount.toFloat() / config.targetCount
-                        }
-                    },
+                    progress = progress.coerceIn(0f, 1f),
                     modifier = Modifier.fillMaxWidth()
                 )
                 
@@ -132,21 +131,21 @@ fun CollectingScreen(
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (!state.isRunning && state.state == TaskState.IDLE) {
+            if (!state.isActivelyRunning && state.state == TaskState.IDLE) {
                 Button(
                     onClick = { collectorEngine.start(config) },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
                     Text("开始")
                 }
-            } else if (state.isRunning) {
+            } else if (state.isActivelyRunning) {
                 Button(
                     onClick = { collectorEngine.pause() },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Pause, contentDescription = null)
+                    Icon(Icons.Filled.Pause, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
                     Text("暂停")
                 }
@@ -155,7 +154,7 @@ fun CollectingScreen(
                     onClick = { collectorEngine.resume() },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
                     Text("继续")
                 }
@@ -164,14 +163,14 @@ fun CollectingScreen(
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Icon(Icons.Default.Stop, contentDescription = null)
+                    Icon(Icons.Filled.Stop, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
                     Text("停止")
                 }
             }
         }
         
-        Divider(modifier = Modifier.padding(vertical = 8.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
         
         // 结果列表
         Text("结果列表 (${state.results.size})", modifier = Modifier.padding(horizontal = 16.dp))
@@ -222,7 +221,7 @@ fun CollectingScreen(
                                     Text(
                                         text = "AI",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = androidx.compose.ui.graphics.Color(0xFF9C27B0)
+                                        color = Color(0xFF9C27B0)
                                     )
                                 }
                                 if (artwork.r18 != "none") {
@@ -230,7 +229,7 @@ fun CollectingScreen(
                                     Text(
                                         text = artwork.r18.uppercase(),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = androidx.compose.ui.graphics.Color(0xFFF44336)
+                                        color = Color(0xFFF44336)
                                     )
                                 }
                             }

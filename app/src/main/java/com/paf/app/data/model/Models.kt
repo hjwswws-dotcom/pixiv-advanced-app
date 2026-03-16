@@ -1,8 +1,11 @@
 package com.paf.app.data.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * 搜索结果中的作品
  */
+@Serializable
 data class Artwork(
     val id: Long,
     val title: String,
@@ -18,6 +21,7 @@ data class Artwork(
 /**
  * 搜索参数配置
  */
+@Serializable
 data class SearchConfig(
     val keyword: String = "",
     val minPages: Int = 2,

@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
@@ -80,6 +81,9 @@ dependencies {
 
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
+
+    // DataStore for persistence
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

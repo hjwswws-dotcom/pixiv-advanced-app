@@ -1,5 +1,8 @@
 package com.paf.app.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,14 +14,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.paf.app.data.api.PixivApiService
 import com.paf.app.data.model.SearchConfig
 import com.paf.app.data.model.TaskState
+import com.paf.app.data.repository.SearchHistoryRepository
 import com.paf.app.domain.CollectorEngine
 import com.paf.app.domain.CollectorState
+import kotlinx.coroutines.flow.collectAsState
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -26,8 +32,10 @@ fun CollectingScreen(
     config: SearchConfig,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val apiService = remember { PixivApiService() }
-    val collectorEngine = remember { CollectorEngine(apiService) }
+    val repository = remember { SearchHistoryRepository(context) }
+    val collectorEngine = remember { CollectorEngine(apiService, repository) }
     
     var state by remember { mutableStateOf(CollectorState()) }
     
@@ -201,7 +209,13 @@ fun CollectingScreen(
         ) {
             items(state.results) { artwork ->
                 Card(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            // 打开系统浏览器
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(artwork.url))
+                            context.startActivity(intent)
+                        }
                 ) {
                     Row(
                         modifier = Modifier
@@ -262,16 +276,52 @@ fun CollectingScreen(
 
 @Composable
 fun HistoryScreen(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val repository = remember { SearchHistoryRepository(context) }
+    val history by repository.getSearchHistory().collectAsState(initial = emptyList())
+    
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        modifier = modifier.fillMaxSize()
     ) {
-        Text("历史任务", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("暂无历史记录", style = MaterialTheme.typography.bodyMedium)
+        Text(
+            "历史搜索 (${history.size})",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(16.dp)
+        )
+        
+        if (history.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("暂无历史记录", style = MaterialTheme.typography.bodyMedium)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(history) { item ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = item.config.keyword,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "筛选: ${item.config.minPages}张 | 结果: ${item.resultCount}个",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

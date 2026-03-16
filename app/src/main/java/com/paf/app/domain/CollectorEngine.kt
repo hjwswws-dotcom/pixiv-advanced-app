@@ -4,6 +4,7 @@ import com.paf.app.data.api.PixivApiService
 import com.paf.app.data.model.Artwork
 import com.paf.app.data.model.SearchConfig
 import com.paf.app.data.model.TaskState
+import com.paf.app.data.repository.SearchHistoryRepository
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
@@ -12,7 +13,8 @@ import kotlinx.coroutines.flow.*
  * 核心业务逻辑
  */
 class CollectorEngine(
-    private val apiService: PixivApiService
+    private val apiService: PixivApiService,
+    private val repository: SearchHistoryRepository? = null
 ) {
     
     private val _state = MutableStateFlow(CollectorState())
@@ -159,6 +161,16 @@ class CollectorEngine(
             
             // 页间延迟
             delay(1000)
+        }
+        
+        // 任务结束后保存结果到 DataStore
+        val finalConfig = _state.value.config
+        val finalResults = _state.value.results
+        if (finalConfig != null && finalResults.isNotEmpty() && repository != null) {
+            // 保存最新结果
+            repository.saveLatestResult(finalConfig, finalResults)
+            // 保存历史记录
+            repository.saveSearchHistory(finalConfig, finalResults.size)
         }
     }
 }

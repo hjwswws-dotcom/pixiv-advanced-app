@@ -398,8 +398,8 @@ fun LoginWebView(
 
     AlertDialog(
         onDismissRequest = { 
-            // 关闭前再次检测
-            checkAndExtractCookies()?.let { onCookiesReceived(it) }
+            // 只关闭对话框，不自动处理 cookies
+            // 避免用户误点外部区域导致误判登录
             onDismiss() 
         },
         title = { Text("Pixiv 登录") },

@@ -1,0 +1,284 @@
+name: Syntax Check
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - '**.kt'
+      - '**.xml'
+      - '**.gradle.kts'
+      - '**.yml'
+      - 'tools/**'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - '**.kt'
+      - '**.xml'
+      - '**.gradle.kts'
+      - '**.yml'
+      - 'tools/**'
+  workflow_dispatch:
+
+jobs:
+  # ============================================
+  # 1. 关键工程文件存在检查
+  # ============================================
+  check-files:
+    name: Check Required Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check required files exist
+        run: |
+          echo "Checking required project files..."
+          
+          required_files=(
+            "app/build.gradle.kts"
+            "settings.gradle.kts"
+            "gradle.properties"
+            "app/src/main/AndroidManifest.xml"
+            "app/src/main/java/com/paf/app/MainActivity.kt"
+            "gradle/wrapper/gradle-wrapper.properties"
+          )
+          
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "Missing required file: $file"
+              exit 1
+            fi
+          done
+          
+          echo "All required files exist"
+
+  # ============================================
+  # 2. XML 合法性检查
+  # ============================================
+  check-xml:
+    name: Check XML Validity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Check XML files
+        run: |
+          python3 -c "
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          
+          xml_files = [
+              'app/src/main/AndroidManifest.xml',
+              'app/src/main/res/values/strings.xml'
+          ]
+          
+          # Add all res XML files
+          res_dir = Path('app/src/main/res')
+          if res_dir.exists():
+              xml_files.extend([str(f) for f in res_dir.rglob('*.xml')])
+          
+          for xml_file in xml_files:
+              try:
+                  ET.parse(xml_file)
+                  print(f'OK: {xml_file}')
+              except ET.ParseError as e:
+                  print(f'FAIL: {xml_file} - {e}')
+                  exit(1)
+              except Exception as e:
+                  print(f'ERROR: {xml_file} - {e}')
+                  exit(1)
+          "
+
+  # ============================================
+  # 3. Kotlin 语法检查 (基础)
+  # ============================================
+  check-kotlin:
+    name: Check Kotlin Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Check Kotlin syntax
+        run: |
+          python3 -c "
+          import re
+          from pathlib import Path
+          
+          kt_files = list(Path('app/src/main/java').rglob('*.kt'))
+          
+          if not kt_files:
+              print('No Kotlin files found')
+              exit(0)
+          
+          errors = 0
+          for kt_file in kt_files:
+              content = kt_file.read_text(encoding='utf-8', errors='ignore')
+              rel_path = str(kt_file.relative_to('.'))
+              
+              # Check brace matching
+              open_brace = content.count('{')
+              close_brace = content.count('}')
+              if open_brace != close_brace:
+                  print(f'WARN: Brace mismatch in {rel_path}')
+              
+              # Check parenthesis matching
+              open_paren = content.count('(')
+              close_paren = content.count(')')
+              if open_paren != close_paren:
+                  print(f'WARN: Parenthesis mismatch in {rel_path}')
+              
+              # Check for empty imports
+              if re.search(r'^\s*import\s+\.\$', content, re.MULTILINE):
+                  print(f'FAIL: Invalid import in {rel_path}')
+                  errors += 1
+          
+          if errors > 0:
+              print(f'Found {errors} syntax errors')
+              exit(1)
+          else:
+              print('Kotlin syntax check passed')
+          "
+
+  # ============================================
+  # 4. Gradle 配置检查
+  # ============================================
+  check-gradle:
+    name: Check Gradle Config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Check Gradle config
+        run: |
+          python3 -c "
+          import re
+          from pathlib import Path
+          
+          # Check settings.gradle.kts
+          settings = Path('settings.gradle.kts')
+          if settings.exists():
+              content = settings.read_text()
+              has_root = bool(re.search(r'rootProject\.name\s*=', content))
+              has_include = bool(re.search(r'include\s*\(', content))
+              
+              if has_root and has_include:
+                  print('OK: settings.gradle.kts')
+              else:
+                  print('FAIL: settings.gradle.kts missing required config')
+                  exit(1)
+          else:
+              print('FAIL: settings.gradle.kts not found')
+              exit(1)
+          
+          # Check app/build.gradle.kts
+          app_build = Path('app/build.gradle.kts')
+          if app_build.exists():
+              content = app_build.read_text()
+              has_android = bool(re.search(r'android\s*\{', content))
+              has_deps = bool(re.search(r'dependencies\s*\{', content))
+              
+              if has_android and has_deps:
+                  print('OK: app/build.gradle.kts')
+              else:
+                  print('FAIL: app/build.gradle.kts missing required config')
+                  exit(1)
+          else:
+              print('FAIL: app/build.gradle.kts not found')
+              exit(1)
+          "
+
+  # ============================================
+  # 5. GitHub Actions Workflow 检查
+  # ============================================
+  check-workflows:
+    name: Check GitHub Actions Workflows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check workflow YAML syntax
+        run: |
+          python3 -c "
+          import yaml
+          from pathlib import Path
+          
+          workflow_dir = Path('.github/workflows')
+          if not workflow_dir.exists():
+              print('No workflows directory')
+              exit(0)
+          
+          for workflow in workflow_dir.glob('*.yml'):
+              try:
+                  content = workflow.read_text()
+                  data = yaml.safe_load(content)
+                  
+                  if 'name' in data and 'on' in data:
+                      print(f'OK: {workflow.name}')
+                  else:
+                      print(f'FAIL: {workflow.name} missing required fields')
+                      exit(1)
+              except yaml.YAMLError as e:
+                  print(f'FAIL: {workflow.name} YAML parse error: {e}')
+                  exit(1)
+              except Exception as e:
+                  print(f'ERROR: {workflow.name}: {e}')
+                  exit(1)
+          "
+        env:
+          PYTHONUNBUFFERED: "1"
+
+  # ============================================
+  # 6. 完整性检查
+  # ============================================
+  check-completeness:
+    name: Completeness Check
+    runs-on: ubuntu-latest
+    needs: [check-files, check-xml, check-kotlin, check-gradle, check-workflows]
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          echo "Syntax check completed"
+          
+          # Check if all required checks passed
+          if [ "${{ needs.check-files.result }}" != "success" ]; then
+            echo "check-files failed"
+            exit 1
+          fi
+          if [ "${{ needs.check-xml.result }}" != "success" ]; then
+            echo "check-xml failed"
+            exit 1
+          fi
+          if [ "${{ needs.check-kotlin.result }}" != "success" ]; then
+            echo "check-kotlin failed"
+            exit 1
+          fi
+          if [ "${{ needs.check-gradle.result }}" != "success" ]; then
+            echo "check-gradle failed"
+            exit 1
+          fi
+          if [ "${{ needs.check-workflows.result }}" != "success" ]; then
+            echo "check-workflows failed"
+            exit 1
+          fi
+          
+          echo "All syntax checks passed!"

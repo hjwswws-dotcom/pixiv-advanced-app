@@ -1,14 +1,123 @@
 name: Build Android APK
 
+# 只有 syntax-check 通过后才运行 build
 on:
   push:
     branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
+      - 'tools/preflight.ps1'
+      - 'tools/preflight.py'
   pull_request:
     branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
+      - 'tools/preflight.ps1'
+      - 'tools/preflight.py'
   workflow_dispatch:
 
+# 设置语法检查必须通过才能运行 build
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  # ============================================
+  # 语法检查 (先决条件)
+  # ============================================
+  syntax-check:
+    name: Syntax Check
+    runs-on: ubuntu-latest
+    outputs:
+      passed: ${{ steps.check.outputs.passed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - id: check
+        name: Run Syntax Checks
+        run: |
+          echo "passed=true" >> $GITHUB_OUTPUT
+          
+          # 1. 检查关键文件
+          echo "Checking required files..."
+          required_files=(
+            "app/build.gradle.kts"
+            "settings.gradle.kts"
+            "gradle.properties"
+            "app/src/main/AndroidManifest.xml"
+            "app/src/main/java/com/paf/app/MainActivity.kt"
+            "gradle/wrapper/gradle-wrapper.properties"
+          )
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "Missing: $file"
+              echo "passed=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          done
+          echo "All required files exist"
+          
+          # 2. XML 合法性检查
+          echo "Checking XML files..."
+          python3 -c "
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          for f in ['app/src/main/AndroidManifest.xml', 'app/src/main/res/values/strings.xml']:
+              try:
+                  ET.parse(f)
+                  print(f'OK: {f}')
+              except Exception as e:
+                  print(f'FAIL: {f} - {e}')
+                  exit(1)
+          "
+          
+          # 3. Kotlin 语法检查
+          echo "Checking Kotlin files..."
+          python3 -c "
+          import re
+          from pathlib import Path
+          for f in Path('app/src/main/java').rglob('*.kt'):
+              content = f.read_text(encoding='utf-8', errors='ignore')
+              if re.search(r'^\s*import\s+\.\$', content, re.MULTILINE):
+                  print(f'FAIL: Invalid import in {f}')
+                  exit(1)
+          print('Kotlin syntax OK')
+          "
+          
+          # 4. Gradle 配置检查
+          echo "Checking Gradle config..."
+          python3 -c "
+          import re
+          from pathlib import Path
+          
+          s = Path('settings.gradle.kts').read_text()
+          if not (re.search(r'rootProject\.name\s*=', s) and re.search(r'include\s*\(', s)):
+              print('FAIL: settings.gradle.kts')
+              exit(1)
+          
+          b = Path('app/build.gradle.kts').read_text()
+          if not (re.search(r'android\s*\{', b) and re.search(r'dependencies\s*\{', b)):
+              print('FAIL: app/build.gradle.kts')
+              exit(1)
+          
+          print('Gradle config OK')
+          "
+          
+          echo "All syntax checks passed!"
+
+  # ============================================
+  # 构建 APK (依赖语法检查)
+  # ============================================
   build:
+    name: Build APK
+    needs: syntax-check
+    if: needs.syntax-check.outputs.passed == 'true'
     runs-on: ubuntu-latest
     
     steps:

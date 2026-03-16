@@ -79,7 +79,7 @@ fun CollectingScreen(
                     state.matchedCount.toFloat() / config.targetCount
                 }
                 LinearProgressIndicator(
-                    progress = { progress.coerceIn(0f, 1f) },
+                    progress = progress.coerceIn(0f, 1f),
                     modifier = Modifier.fillMaxWidth()
                 )
                 
@@ -158,7 +158,7 @@ fun CollectingScreen(
             }
         }
         
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        Divider(modifier = Modifier.padding(vertical = 8.dp))
         
         // 结果列表
         Text("结果列表 (${state.results.size})", modifier = Modifier.padding(horizontal = 16.dp))

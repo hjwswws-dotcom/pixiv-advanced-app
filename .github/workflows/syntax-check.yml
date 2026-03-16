@@ -229,15 +229,27 @@ jobs:
               print('No workflows directory')
               exit(0)
           
+          print(f'Found {len(list(workflow_dir.glob(\"*.yml\")))} workflow files')
+          
           for workflow in workflow_dir.glob('*.yml'):
               try:
                   content = workflow.read_text()
                   data = yaml.safe_load(content)
                   
+                  print(f'Parsed {workflow.name}: type={type(data)}, keys={list(data.keys()) if isinstance(data, dict) else \"not-dict\"}')
+                  
+                  if data is None:
+                      print(f'FAIL: {workflow.name} parsed to None')
+                      exit(1)
+                  
+                  if not isinstance(data, dict):
+                      print(f'FAIL: {workflow.name} is not a dict')
+                      exit(1)
+                  
                   if 'name' in data and 'on' in data:
                       print(f'OK: {workflow.name}')
                   else:
-                      print(f'FAIL: {workflow.name} missing required fields')
+                      print(f'FAIL: {workflow.name} missing required fields (has: {list(data.keys())})')
                       exit(1)
               except yaml.YAMLError as e:
                   print(f'FAIL: {workflow.name} YAML parse error: {e}')
